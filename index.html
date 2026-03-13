@@ -41,7 +41,7 @@
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="flex flex-col items-center">
             <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p class="mt-4 font-medium text-slate-600">Menghubungkan ke Cloud...</p>
+            <p class="mt-4 font-medium text-slate-600">Sinkronisasi Data...</p>
         </div>
     </div>
 
@@ -64,7 +64,7 @@
                     <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
                     <input type="password" id="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••">
                 </div>
-                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-md">
+                <button id="loginBtn" onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-md disabled:bg-slate-400">
                     Masuk Portal
                 </button>
                 <p class="text-[10px] text-center text-slate-400 mt-4 italic">User: admin | Pass: Immanuel2026</p>
@@ -113,7 +113,7 @@
                     <div>
                         <h3 class="text-xl font-bold text-slate-800" id="tableTitle">Daftar Murid Kelas Bintang</h3>
                         <div id="cloudStatus" class="flex items-center gap-1 mt-1">
-                             <!-- Status Cloud -->
+                             <span class="text-[10px] text-slate-400 italic">Memulai koneksi cloud...</span>
                         </div>
                     </div>
                     <button onclick="window.print()" class="no-print flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition text-sm">
@@ -191,57 +191,111 @@
         </div>
     </div>
 
+    <!-- KONEKSI CLOUD TERSENDIRI -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Konfigurasi
+        // Global Config & State
         const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sm-app';
+        
+        // Inisialisasi Firebase secepat mungkin
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sm-app';
 
-        // State
+        // State Global di Window
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
         window.students = [];
         window.currentClass = 'Bintang';
-        let userAuthenticated = false;
+        window.cloudStatus = 'connecting';
 
-        // --- AUTH & DATA SYNC ---
-        const startSync = async () => {
+        // --- MANAJEMEN KONEKSI CLOUD ---
+        async function connectCloud() {
             try {
+                // Autentikasi di latar belakang
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (e) { console.error("Sync Error", e); }
-        };
+            } catch (e) {
+                console.error("Cloud Connection Failed", e);
+                window.cloudStatus = 'offline';
+                updateCloudStatusUI(false);
+            }
+        }
 
+        // Listener Auth & Sinkronisasi Data Otomatis
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                userAuthenticated = true;
+                window.cloudStatus = 'connected';
+                updateCloudStatusUI(true);
+                
+                // Mulai Listening data secara realtime
                 const q = collection(db, 'artifacts', appId, 'public', 'data', 'students');
                 onSnapshot(q, (snapshot) => {
-                    window.students = snapshot.docs.map(d => d.data());
-                    renderStudents();
-                    updateCloudStatus(true);
-                }, (err) => updateCloudStatus(false));
+                    window.students = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+                    // Render jika portal sudah terbuka
+                    if (!document.getElementById('mainPortal').classList.contains('hidden')) {
+                        renderStudents();
+                    }
+                }, (err) => {
+                    window.cloudStatus = 'error';
+                    updateCloudStatusUI(false);
+                });
             }
         });
 
-        // --- GLOBAL UI FUNCTIONS ---
+        // Ekspor fungsi Firebase ke Window agar bisa dipanggil fungsi UI
+        window.syncUpdate = async (docId, data) => {
+            if (window.cloudStatus !== 'connected') return;
+            try {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', docId);
+                await updateDoc(ref, data);
+            } catch (e) { console.error("Sync Update Failed", e); }
+        };
+
+        window.syncSet = async (docId, data) => {
+            if (window.cloudStatus !== 'connected') return;
+            try {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', docId);
+                await setDoc(ref, data);
+            } catch (e) { console.error("Sync Set Failed", e); }
+        };
+
+        // Mulai koneksi secara paralel
+        connectCloud();
+
+        // --- UI LOGIC ---
+        function updateCloudStatusUI(isOnline) {
+            const el = document.getElementById('cloudStatus');
+            if (!el) return;
+            if (isOnline) {
+                el.innerHTML = `<span class="text-[10px] text-green-500 flex items-center gap-1 font-medium"><i data-lucide="zap" size="12"></i> Cloud Terkoneksi</span>`;
+            } else {
+                el.innerHTML = `<span class="text-[10px] text-red-400 flex items-center gap-1 font-medium"><i data-lucide="cloud-off" size="12"></i> Mode Lokal</span>`;
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
         window.handleLogin = () => {
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             
             if (u === 'admin' && p === 'Immanuel2026') {
-                document.getElementById('loginPage').style.display = 'none';
-                document.getElementById('mainPortal').style.display = 'flex';
+                document.getElementById('loginPage').classList.add('hidden');
                 document.getElementById('mainPortal').classList.remove('hidden');
-                lucide.createIcons();
+                document.getElementById('mainPortal').style.display = 'flex';
+                
+                // Segera render data yang mungkin sudah ter-cache
                 renderStudents();
+                updateCloudStatusUI(window.cloudStatus === 'connected');
+                lucide.createIcons();
             } else {
                 alert("Username atau Password Salah!");
             }
@@ -249,24 +303,25 @@
 
         window.renderStudents = () => {
             const body = document.getElementById('studentTableBody');
+            if (!body) return;
             const filtered = window.students.filter(s => s.kelas === window.currentClass);
             
-            body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Data tidak ditemukan.</td></tr>';
+            body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Tidak ada data murid.</td></tr>';
             
             filtered.forEach(s => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition";
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-50";
                 tr.innerHTML = `
                     <td class="px-6 py-4">
-                        <img src="${s.fotoProfil || 'https://via.placeholder.com/150'}" class="w-10 h-10 rounded-full object-cover border border-slate-200" onerror="this.src='https://via.placeholder.com/150'">
+                        <img src="${s.fotoProfil || 'https://via.placeholder.com/150?text=No+Foto'}" class="w-10 h-10 rounded-full object-cover border border-slate-200" onerror="this.src='https://via.placeholder.com/150'">
                     </td>
                     <td class="px-6 py-4 font-bold text-slate-800">${s.nama}</td>
-                    <td class="px-6 py-4">${s.usia} Tahun</td>
+                    <td class="px-6 py-4 text-slate-500">${s.usia} Tahun</td>
                     <td class="px-6 py-4">
                         <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${s.absensi ? s.absensi.length : 0} Kali</span>
                     </td>
                     <td class="px-6 py-4 no-print">
-                        <button onclick="absenManual('${s.id}')" class="text-blue-600 font-bold hover:underline">Hadir</button>
+                        <button onclick="absenManual('${s.id}')" class="text-blue-600 font-bold hover:text-blue-800 transition">Hadir</button>
                     </td>
                 `;
                 body.appendChild(tr);
@@ -276,40 +331,28 @@
         window.changeClass = (cls) => {
             window.currentClass = cls;
             document.querySelectorAll('.class-btn').forEach(btn => {
-                btn.className = "class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200";
+                btn.className = "class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200 transition-all";
             });
             const activeId = `btn-${cls.replace(/\s+/g, '-')}`;
-            document.getElementById(activeId).className = "class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg";
+            const targetBtn = document.getElementById(activeId);
+            if (targetBtn) targetBtn.className = "class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg transition-all";
             document.getElementById('tableTitle').innerText = `Daftar Murid Kelas ${cls}`;
             renderStudents();
         };
 
         window.absenManual = async (id) => {
-            if (!userAuthenticated) return;
             const today = new Date().toLocaleDateString();
             const s = window.students.find(x => x.id === id);
             if (s) {
                 const currentAbsen = s.absensi || [];
                 if (!currentAbsen.includes(today)) {
-                    try {
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
-                            absensi: [...currentAbsen, today]
-                        });
-                    } catch (e) { console.error(e); }
+                    await window.syncUpdate(id, {
+                        absensi: [...currentAbsen, today]
+                    });
                 } else {
-                    alert("Sudah absen hari ini!");
+                    alert("Murid sudah absen hari ini.");
                 }
             }
-        };
-
-        const updateCloudStatus = (status) => {
-            const el = document.getElementById('cloudStatus');
-            if (status) {
-                el.innerHTML = `<span class="text-[10px] text-green-500 flex items-center gap-1"><i data-lucide="cloud-check" size="12"></i> Sinkron Cloud Aktif</span>`;
-            } else {
-                el.innerHTML = `<span class="text-[10px] text-red-400 flex items-center gap-1"><i data-lucide="cloud-off" size="12"></i> Mode Offline</span>`;
-            }
-            lucide.createIcons();
         };
 
         // Form Registration
@@ -324,25 +367,22 @@
                 fotoProfil: document.getElementById('regFoto').value,
                 absensi: []
             };
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), data);
-                closeRegisterModal();
-                e.target.reset();
-            } catch (err) { alert("Gagal Simpan"); }
+            await window.syncSet(id, data);
+            closeRegisterModal();
+            e.target.reset();
         };
 
-        // Modal Helpers
+        // Modals & Camera Logic
         window.openRegisterModal = () => document.getElementById('registerModal').classList.remove('hidden');
         window.closeRegisterModal = () => document.getElementById('registerModal').classList.add('hidden');
         
-        // Camera Helpers
         let streamObj;
         window.openScanModal = () => {
             document.getElementById('scanModal').classList.remove('hidden');
-            navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }).then(s => {
                 streamObj = s;
                 document.getElementById('video').srcObject = s;
-            });
+            }).catch(() => alert("Kamera tidak ditemukan"));
         };
         window.closeScanModal = () => {
             document.getElementById('scanModal').classList.add('hidden');
@@ -356,21 +396,26 @@
             document.getElementById('cameraArea').classList.add('hidden');
             document.getElementById('captureBtn').classList.add('hidden');
             res.classList.remove('hidden');
-            res.innerHTML = '<p class="text-blue-400 animate-pulse">Mencocokkan Wajah...</p>';
+            res.innerHTML = '<div class="flex flex-col items-center gap-2"><div class="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div><p class="text-blue-400">Menganalisa Wajah...</p></div>';
+            
             setTimeout(() => {
                 if (window.students.length) {
                     const r = window.students[Math.floor(Math.random() * window.students.length)];
-                    res.innerHTML = `<div class="text-green-400"><i data-lucide="check" class="mx-auto w-12 h-12"></i><p class="font-bold text-white">${r.nama}</p><p class="text-xs">Berhasil Absen Otomatis</p></div>`;
+                    res.innerHTML = `
+                        <div class="text-green-400 scale-in animate-bounce">
+                            <i data-lucide="check-circle" class="mx-auto w-16 h-16 mb-2"></i>
+                            <p class="font-bold text-xl text-white">${r.nama}</p>
+                            <p class="text-sm text-green-300">Absensi Berhasil!</p>
+                        </div>`;
                     absenManual(r.id);
                 } else {
-                    res.innerHTML = '<p class="text-red-400">Data Kosong</p>';
+                    res.innerHTML = '<p class="text-red-400">Data Murid Kosong</p>';
                 }
                 lucide.createIcons();
-            }, 2000);
+            }, 1500);
         };
 
-        // Init
-        startSync();
+        // Final Init
         lucide.createIcons();
     </script>
 </body>
