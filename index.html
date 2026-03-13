@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Absensi Sekolah Minggu</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @media print {
             .no-print { display: none !important; }
             .print-only { display: block !important; }
             body { background-color: white !important; }
-            .card { border: none !important; shadow: none !important; }
         }
         .scan-line {
             height: 2px;
@@ -29,7 +27,7 @@
         .loading-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -39,15 +37,15 @@
 </head>
 <body class="bg-slate-100 font-sans text-slate-900">
 
-    <!-- Loading Overlay for Sync -->
+    <!-- Loading Sync Overlay -->
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="flex flex-col items-center">
             <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p class="mt-4 font-medium text-slate-600">Menyinkronkan dengan Cloud...</p>
+            <p class="mt-4 font-medium text-slate-600">Menghubungkan ke Cloud...</p>
         </div>
     </div>
 
-    <!-- LOGIN PAGE -->
+    <!-- HALAMAN LOGIN -->
     <div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
             <div class="text-center mb-8">
@@ -55,25 +53,26 @@
                     <i data-lucide="users" class="text-white w-8 h-8"></i>
                 </div>
                 <h1 class="text-2xl font-bold text-slate-800">Portal Sekolah Minggu</h1>
-                <p class="text-slate-500">Gunakan username: <span class="font-bold">admin</span></p>
+                <p class="text-slate-500 text-sm">Masukkan kredensial admin Anda</p>
             </div>
-            <form id="loginForm" class="space-y-4">
+            <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
-                    <input type="text" id="username" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="admin">
+                    <input type="text" id="username" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="admin">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                    <input type="password" id="password" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Immanuel2026">
+                    <input type="password" id="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••">
                 </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-md">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-md">
                     Masuk Portal
                 </button>
-            </form>
+                <p class="text-[10px] text-center text-slate-400 mt-4 italic">User: admin | Pass: Immanuel2026</p>
+            </div>
         </div>
     </div>
 
-    <!-- MAIN PORTAL -->
+    <!-- PORTAL UTAMA -->
     <div id="mainPortal" class="hidden min-h-screen flex flex-col md:flex-row">
         <!-- Sidebar -->
         <nav class="w-full md:w-64 bg-white border-r border-slate-200 p-6 flex flex-col no-print">
@@ -85,7 +84,7 @@
             </div>
             
             <div class="space-y-2 flex-grow">
-                <button onclick="changeClass(window.currentClass)" class="nav-btn w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-blue-50 text-blue-600">
+                <button onclick="changeClass(window.currentClass)" class="w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-blue-50 text-blue-600">
                     <i data-lucide="clipboard-list" size="20"></i> Absensi
                 </button>
                 <button onclick="openRegisterModal()" class="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100">
@@ -96,31 +95,29 @@
                 </button>
             </div>
 
-            <button onclick="logout()" class="flex items-center gap-3 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg mt-10">
+            <button onclick="location.reload()" class="flex items-center gap-3 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg mt-10">
                 <i data-lucide="log-out" size="20"></i> Keluar
             </button>
         </nav>
 
-        <!-- Content -->
+        <!-- Main Content -->
         <main class="flex-grow p-4 md:p-8">
-            <!-- Header Tab Kelas -->
             <div class="flex flex-wrap gap-2 mb-8 no-print">
-                <button onclick="changeClass('Bintang')" id="btn-Bintang" class="class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg transition-all">Kelas Bintang</button>
-                <button onclick="changeClass('Cahaya')" id="btn-Cahaya" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200 transition-all">Kelas Cahaya</button>
-                <button onclick="changeClass('Pra Remaja')" id="btn-Pra-Remaja" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200 transition-all">Kelas Pra Remaja</button>
+                <button onclick="changeClass('Bintang')" id="btn-Bintang" class="class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg">Kelas Bintang</button>
+                <button onclick="changeClass('Cahaya')" id="btn-Cahaya" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200">Kelas Cahaya</button>
+                <button onclick="changeClass('Pra Remaja')" id="btn-Pra-Remaja" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200">Kelas Pra Remaja</button>
             </div>
 
-            <!-- Table -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                    <div class="flex flex-col">
+                    <div>
                         <h3 class="text-xl font-bold text-slate-800" id="tableTitle">Daftar Murid Kelas Bintang</h3>
-                        <span id="cloudStatus" class="text-[10px] text-slate-400 flex items-center gap-1">
-                            <i data-lucide="loader" class="animate-spin" size="12"></i> Menghubungkan...
-                        </span>
+                        <div id="cloudStatus" class="flex items-center gap-1 mt-1">
+                             <!-- Status Cloud -->
+                        </div>
                     </div>
-                    <button onclick="window.print()" class="no-print flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition">
-                        <i data-lucide="printer" size="18"></i> Cetak Rekap
+                    <button onclick="window.print()" class="no-print flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition text-sm">
+                        <i data-lucide="printer" size="16"></i> Cetak Rekap
                     </button>
                 </div>
                 <div class="overflow-x-auto">
@@ -129,13 +126,13 @@
                             <tr>
                                 <th class="px-6 py-4">Foto</th>
                                 <th class="px-6 py-4">Nama</th>
-                                <th class="px-6 py-4">Usia/Pendidikan</th>
-                                <th class="px-6 py-4">Total Hadir</th>
+                                <th class="px-6 py-4">Usia</th>
+                                <th class="px-6 py-4">Hadir</th>
                                 <th class="px-6 py-4 no-print">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody id="studentTableBody" class="divide-y divide-slate-100 text-sm">
-                            <!-- Data will be injected here -->
+                        <tbody id="studentTableBody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                            <!-- Data injected here -->
                         </tbody>
                     </table>
                 </div>
@@ -145,19 +142,19 @@
 
     <!-- MODAL REGISTRASI -->
     <div id="registerModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 my-8 shadow-2xl">
+        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-slate-800">Registrasi Murid Baru</h2>
-                <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x-circle"></i></button>
+                <h2 class="text-2xl font-bold text-slate-800">Murid Baru</h2>
+                <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
             </div>
             <form id="registerForm" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-1">Nama Lengkap</label>
-                        <input type="text" id="regNama" required class="w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nama Lengkap</label>
+                        <input type="text" id="regNama" required class="w-full border p-2 rounded-lg">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Kelas</label>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Kelas</label>
                         <select id="regKelas" class="w-full border p-2 rounded-lg">
                             <option value="Bintang">Bintang</option>
                             <option value="Cahaya">Cahaya</option>
@@ -165,142 +162,111 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Tanggal Lahir</label>
-                        <input type="date" id="regTgl" required class="w-full border p-2 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Usia</label>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Usia</label>
                         <input type="number" id="regUsia" required class="w-full border p-2 rounded-lg">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Pendidikan</label>
-                        <select id="regPendidikan" class="w-full border p-2 rounded-lg">
-                            <option>Belum Sekolah</option>
-                            <option>SD Kelas 1</option>
-                            <option>SD Kelas 2</option>
-                            <option>SD Kelas 3</option>
-                            <option>SD Kelas 4</option>
-                            <option>SD Kelas 5</option>
-                            <option>SD Kelas 6</option>
-                            <option>SMP Kelas 1</option>
-                            <option>SMP Kelas 2</option>
-                            <option>SMP Kelas 3</option>
-                        </select>
-                    </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium mb-1">Foto Profil (URL Gambar)</label>
-                        <input type="text" id="regFoto" placeholder="Contoh: https://i.pravatar.cc/150" class="w-full border p-2 rounded-lg">
-                        <p class="text-[10px] text-slate-400 mt-1">*Masukkan link foto dari internet untuk identitas</p>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">URL Foto Profil</label>
+                        <input type="text" id="regFoto" placeholder="https://..." class="w-full border p-2 rounded-lg">
                     </div>
                 </div>
-                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg mt-4 hover:bg-blue-700 transition">
-                    Simpan Data Murid
-                </button>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg mt-4 shadow-lg hover:bg-blue-700">Simpan Ke Cloud</button>
             </form>
         </div>
     </div>
 
     <!-- MODAL SCAN -->
     <div id="scanModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50">
-        <div class="bg-slate-800 rounded-3xl w-full max-w-xl p-8 relative border border-slate-700">
-            <button onclick="closeScanModal()" class="absolute top-4 right-4 text-white/50 hover:text-white"><i data-lucide="x-circle"></i></button>
-            <h2 class="text-xl font-bold text-white mb-6 text-center">Scan Wajah Murid</h2>
-            
+        <div class="bg-slate-800 rounded-3xl w-full max-w-xl p-8 relative border border-slate-700 text-center">
+            <button onclick="closeScanModal()" class="absolute top-4 right-4 text-white/50"><i data-lucide="x"></i></button>
+            <h2 class="text-xl font-bold text-white mb-6">Scan Wajah Murid</h2>
             <div id="cameraArea" class="relative aspect-video bg-black rounded-2xl overflow-hidden mb-6 border-2 border-blue-500/30">
                 <video id="video" autoplay playsinline class="w-full h-full object-cover"></video>
                 <div class="scan-line"></div>
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div class="w-48 h-48 border-2 border-dashed border-white/50 rounded-full"></div>
-                </div>
             </div>
-
-            <div id="scanResult" class="hidden mb-6 p-6 rounded-xl text-center">
-                <!-- Result dynamically injected -->
-            </div>
-
-            <button id="captureBtn" onclick="simulateScan()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-xl hover:bg-blue-700 transition flex items-center justify-center gap-2">
+            <div id="scanResult" class="hidden mb-6 p-6 rounded-xl"></div>
+            <button id="captureBtn" onclick="simulateScan()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2">
                 <i data-lucide="camera" size="24"></i> Deteksi Wajah
             </button>
         </div>
     </div>
 
-    <!-- Firebase SDK & App Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration
+        // Konfigurasi
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sm-absensi-portal';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sm-app';
 
-        // State Global
+        // State
         window.students = [];
         window.currentClass = 'Bintang';
-        let currentUser = null;
+        let userAuthenticated = false;
 
-        // --- AUTHENTICATION ---
-        const initCloudSync = async () => {
-            document.getElementById('loadingOverlay').classList.remove('hidden');
+        // --- AUTH & DATA SYNC ---
+        const startSync = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (error) {
-                console.error("Auth Error:", error);
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            }
+            } catch (e) { console.error("Sync Error", e); }
         };
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                currentUser = user;
-                // Ambil data dari Cloud Firestore
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
+                userAuthenticated = true;
+                const q = collection(db, 'artifacts', appId, 'public', 'data', 'students');
                 onSnapshot(q, (snapshot) => {
-                    window.students = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+                    window.students = snapshot.docs.map(d => d.data());
                     renderStudents();
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    document.getElementById('cloudStatus').innerHTML = `<i data-lucide="cloud-check" size="12" class="text-green-500"></i> <span class="text-green-500">Terhubung & Sinkron</span>`;
-                    lucide.createIcons();
-                }, (error) => {
-                    console.error("Firestore Sync Error:", error);
-                    document.getElementById('cloudStatus').innerHTML = `<i data-lucide="cloud-off" size="12" class="text-red-400"></i> <span class="text-red-400">Gagal Sinkron</span>`;
-                    lucide.createIcons();
-                });
+                    updateCloudStatus(true);
+                }, (err) => updateCloudStatus(false));
             }
         });
 
-        // --- UI FUNCTIONS (EXPORTED TO WINDOW) ---
+        // --- GLOBAL UI FUNCTIONS ---
+        window.handleLogin = () => {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            
+            if (u === 'admin' && p === 'Immanuel2026') {
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainPortal').style.display = 'flex';
+                document.getElementById('mainPortal').classList.remove('hidden');
+                lucide.createIcons();
+                renderStudents();
+            } else {
+                alert("Username atau Password Salah!");
+            }
+        };
+
         window.renderStudents = () => {
             const body = document.getElementById('studentTableBody');
             const filtered = window.students.filter(s => s.kelas === window.currentClass);
             
-            body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Belum ada data murid di kelas ini.</td></tr>';
+            body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Data tidak ditemukan.</td></tr>';
             
             filtered.forEach(s => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition";
-                const displayFoto = s.fotoProfil || 'https://via.placeholder.com/150?text=No+Foto';
-                
                 tr.innerHTML = `
                     <td class="px-6 py-4">
-                        <img src="${displayFoto}" class="w-12 h-12 rounded-full object-cover bg-slate-200 border border-slate-300" onerror="this.src='https://via.placeholder.com/150?text=Error'">
+                        <img src="${s.fotoProfil || 'https://via.placeholder.com/150'}" class="w-10 h-10 rounded-full object-cover border border-slate-200" onerror="this.src='https://via.placeholder.com/150'">
                     </td>
-                    <td class="px-6 py-4 font-medium text-slate-800">${s.nama}</td>
-                    <td class="px-6 py-4 text-slate-600">${s.usia} thn / ${s.pendidikan}</td>
+                    <td class="px-6 py-4 font-bold text-slate-800">${s.nama}</td>
+                    <td class="px-6 py-4">${s.usia} Tahun</td>
                     <td class="px-6 py-4">
-                        <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-                            ${s.absensi ? s.absensi.length : 0} Hari
-                        </span>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${s.absensi ? s.absensi.length : 0} Kali</span>
                     </td>
                     <td class="px-6 py-4 no-print">
-                        <button onclick="absenManual('${s.id}')" class="text-blue-600 hover:text-blue-800 font-bold">Absen</button>
+                        <button onclick="absenManual('${s.id}')" class="text-blue-600 font-bold hover:underline">Hadir</button>
                     </td>
                 `;
                 body.appendChild(tr);
@@ -310,131 +276,101 @@
         window.changeClass = (cls) => {
             window.currentClass = cls;
             document.querySelectorAll('.class-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white', 'shadow-lg');
-                btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+                btn.className = "class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200";
             });
-            const activeBtn = document.getElementById(`btn-${cls.replace(/\s+/g, '-')}`);
-            if (activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-lg');
+            const activeId = `btn-${cls.replace(/\s+/g, '-')}`;
+            document.getElementById(activeId).className = "class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg";
             document.getElementById('tableTitle').innerText = `Daftar Murid Kelas ${cls}`;
             renderStudents();
         };
 
         window.absenManual = async (id) => {
+            if (!userAuthenticated) return;
             const today = new Date().toLocaleDateString();
-            const s = window.students.find(x => x.id.toString() === id.toString());
+            const s = window.students.find(x => x.id === id);
             if (s) {
-                if (!s.absensi) s.absensi = [];
-                if (!s.absensi.includes(today)) {
-                    const newAbsensi = [...s.absensi, today];
+                const currentAbsen = s.absensi || [];
+                if (!currentAbsen.includes(today)) {
                     try {
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id.toString()), {
-                            absensi: newAbsensi
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), {
+                            absensi: [...currentAbsen, today]
                         });
-                    } catch (error) { console.error("Update Error:", error); }
+                    } catch (e) { console.error(e); }
+                } else {
+                    alert("Sudah absen hari ini!");
                 }
             }
         };
 
-        window.logout = () => { location.reload(); };
-
-        // Handle Login Submission
-        document.getElementById('loginForm').onsubmit = (e) => {
-            e.preventDefault();
-            const user = document.getElementById('username').value.trim();
-            const pass = document.getElementById('password').value.trim();
-
-            if (user === 'admin' && pass === 'Immanuel2026') {
-                document.getElementById('loginPage').classList.add('hidden');
-                document.getElementById('mainPortal').classList.remove('hidden');
-                renderStudents();
-                lucide.createIcons();
+        const updateCloudStatus = (status) => {
+            const el = document.getElementById('cloudStatus');
+            if (status) {
+                el.innerHTML = `<span class="text-[10px] text-green-500 flex items-center gap-1"><i data-lucide="cloud-check" size="12"></i> Sinkron Cloud Aktif</span>`;
             } else {
-                alert('Username atau Password salah!');
+                el.innerHTML = `<span class="text-[10px] text-red-400 flex items-center gap-1"><i data-lucide="cloud-off" size="12"></i> Mode Offline</span>`;
             }
+            lucide.createIcons();
         };
 
-        // Handle Register Submission
+        // Form Registration
         document.getElementById('registerForm').onsubmit = async (e) => {
             e.preventDefault();
-            if (!currentUser) return;
-
-            const studentId = Date.now().toString();
-            const newStudent = {
-                id: studentId,
+            const id = Date.now().toString();
+            const data = {
+                id: id,
                 nama: document.getElementById('regNama').value,
                 kelas: document.getElementById('regKelas').value,
-                tanggalLahir: document.getElementById('regTgl').value,
                 usia: document.getElementById('regUsia').value,
-                pendidikan: document.getElementById('regPendidikan').value,
                 fotoProfil: document.getElementById('regFoto').value,
                 absensi: []
             };
-
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), newStudent);
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id), data);
                 closeRegisterModal();
                 e.target.reset();
-            } catch (error) { alert("Gagal menyimpan ke cloud: " + error.message); }
+            } catch (err) { alert("Gagal Simpan"); }
         };
 
-        // Camera Logic
-        let videoStream;
+        // Modal Helpers
+        window.openRegisterModal = () => document.getElementById('registerModal').classList.remove('hidden');
+        window.closeRegisterModal = () => document.getElementById('registerModal').classList.add('hidden');
+        
+        // Camera Helpers
+        let streamObj;
         window.openScanModal = () => {
             document.getElementById('scanModal').classList.remove('hidden');
-            const video = document.getElementById('video');
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(stream => {
-                    videoStream = stream;
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => video.play();
-                })
-                .catch(() => alert("Kamera tidak dapat diakses."));
+            navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
+                streamObj = s;
+                document.getElementById('video').srcObject = s;
+            });
         };
-
         window.closeScanModal = () => {
             document.getElementById('scanModal').classList.add('hidden');
-            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+            if(streamObj) streamObj.getTracks().forEach(t => t.stop());
             document.getElementById('scanResult').classList.add('hidden');
             document.getElementById('cameraArea').classList.remove('hidden');
             document.getElementById('captureBtn').classList.remove('hidden');
         };
-
         window.simulateScan = () => {
-            const resultDiv = document.getElementById('scanResult');
-            const cameraArea = document.getElementById('cameraArea');
-            const captureBtn = document.getElementById('captureBtn');
-
-            cameraArea.classList.add('hidden');
-            captureBtn.classList.add('hidden');
-            resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<div class="text-white animate-pulse flex flex-col items-center gap-4"><div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p>Mencocokkan wajah...</p></div>';
-
+            const res = document.getElementById('scanResult');
+            document.getElementById('cameraArea').classList.add('hidden');
+            document.getElementById('captureBtn').classList.add('hidden');
+            res.classList.remove('hidden');
+            res.innerHTML = '<p class="text-blue-400 animate-pulse">Mencocokkan Wajah...</p>';
             setTimeout(() => {
-                if (window.students.length > 0) {
-                    const randomStudent = window.students[Math.floor(Math.random() * window.students.length)];
-                    resultDiv.className = "mb-6 p-6 rounded-xl text-center bg-green-500/20 text-green-400 border border-green-500/50";
-                    resultDiv.innerHTML = `
-                        <i data-lucide="check-circle" class="mx-auto mb-2 w-12 h-12"></i>
-                        <h3 class="text-xl font-bold">BERHASIL!</h3>
-                        <div class="mt-4 flex flex-col items-center">
-                            <img src="${randomStudent.fotoProfil || 'https://via.placeholder.com/150'}" class="w-20 h-20 rounded-full border-2 border-green-500 object-cover mb-2">
-                            <p class="text-white font-bold">${randomStudent.nama}</p>
-                            <p class="text-sm opacity-70">Kelas ${randomStudent.kelas}</p>
-                        </div>
-                    `;
-                    absenManual(randomStudent.id);
+                if (window.students.length) {
+                    const r = window.students[Math.floor(Math.random() * window.students.length)];
+                    res.innerHTML = `<div class="text-green-400"><i data-lucide="check" class="mx-auto w-12 h-12"></i><p class="font-bold text-white">${r.nama}</p><p class="text-xs">Berhasil Absen Otomatis</p></div>`;
+                    absenManual(r.id);
                 } else {
-                    resultDiv.innerHTML = `<p class="text-white">Belum ada data murid.</p>`;
+                    res.innerHTML = '<p class="text-red-400">Data Kosong</p>';
                 }
                 lucide.createIcons();
             }, 2000);
         };
 
-        window.openRegisterModal = () => document.getElementById('registerModal').classList.remove('hidden');
-        window.closeRegisterModal = () => document.getElementById('registerModal').classList.add('hidden');
-
-        // Start Auth
-        initCloudSync();
+        // Init
+        startSync();
         lucide.createIcons();
     </script>
 </body>
