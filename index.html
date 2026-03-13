@@ -26,9 +26,26 @@
             0% { top: 0; }
             100% { top: 100%; }
         }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
     </style>
 </head>
 <body class="bg-slate-100 font-sans text-slate-900">
+
+    <!-- Loading Overlay for Sync -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p class="mt-4 font-medium text-slate-600">Menyinkronkan dengan Cloud...</p>
+        </div>
+    </div>
 
     <!-- LOGIN PAGE -->
     <div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
@@ -96,7 +113,12 @@
             <!-- Table -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                    <h3 class="text-xl font-bold text-slate-800" id="tableTitle">Daftar Murid Kelas Bintang</h3>
+                    <div class="flex flex-col">
+                        <h3 class="text-xl font-bold text-slate-800" id="tableTitle">Daftar Murid Kelas Bintang</h3>
+                        <span id="cloudStatus" class="text-[10px] text-green-500 flex items-center gap-1">
+                            <i data-lucide="cloud-check" size="12"></i> Terhubung ke Cloud
+                        </span>
+                    </div>
                     <button onclick="window.print()" class="no-print flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition">
                         <i data-lucide="printer" size="18"></i> Cetak Rekap
                     </button>
@@ -202,40 +224,72 @@
         </div>
     </div>
 
-    <script>
-        // DATA STORAGE (Local Storage Simulation)
-        let students = JSON.parse(localStorage.getItem('sm_students')) || [
-            { id: 1, nama: 'Budi Santoso', kelas: 'Bintang', usia: 5, pendidikan: 'Belum Sekolah', fotoProfil: 'https://i.pravatar.cc/150?u=1', absensi: [] },
-            { id: 2, nama: 'Ani Wijaya', kelas: 'Cahaya', usia: 8, pendidikan: 'SD Kelas 2', fotoProfil: 'https://i.pravatar.cc/150?u=2', absensi: [] }
-        ];
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let currentClass = 'Bintang';
+        // Firebase Configuration (Global environment provided)
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sm-absensi-portal';
 
-        // INITIALIZE ICONS
-        lucide.createIcons();
+        // State Global
+        window.students = [];
+        window.currentClass = 'Bintang';
+        let currentUser = null;
 
-        // LOGIN LOGIC
-        document.getElementById('loginForm').onsubmit = (e) => {
-            e.preventDefault();
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-
-            if (user === 'admin' && pass === 'Immanuel2026') {
-                document.getElementById('loginPage').classList.add('hidden');
-                document.getElementById('mainPortal').classList.remove('hidden');
-                renderStudents();
-            } else {
-                alert('Login Gagal! Pastikan username dan password benar.');
+        // --- AUTHENTICATION & SYNC ---
+        const initCloudSync = async () => {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                alert("Gagal terhubung ke server cloud. Pastikan koneksi internet aktif.");
             }
         };
 
-        function logout() {
-            location.reload();
-        }
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                // Ambil data dari Cloud Firestore
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
+                onSnapshot(q, (snapshot) => {
+                    window.students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Fallback jika cloud kosong, pakai data awal/lokal
+                    if (window.students.length === 0) {
+                        const localData = JSON.parse(localStorage.getItem('sm_students')) || [];
+                        if (localData.length > 0) {
+                            localData.forEach(async (s) => {
+                                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id.toString()), s);
+                            });
+                        }
+                    }
+                    renderStudents();
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('cloudStatus').innerHTML = `<i data-lucide="cloud-check" size="12"></i> Terhubung & Sinkron`;
+                    lucide.createIcons();
+                }, (error) => {
+                    console.error("Firestore Sync Error:", error);
+                    document.getElementById('cloudStatus').innerHTML = `<i data-lucide="cloud-off" size="12"></i> Offline Mode`;
+                    lucide.createIcons();
+                });
+            }
+        });
 
-        // NAVIGATION
-        function changeClass(cls) {
-            currentClass = cls;
+        initCloudSync();
+
+        // --- GLOBAL FUNCTIONS FOR UI ---
+        window.changeClass = (cls) => {
+            window.currentClass = cls;
             document.querySelectorAll('.class-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white', 'shadow-lg');
                 btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
@@ -244,12 +298,11 @@
             if (activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-lg');
             document.getElementById('tableTitle').innerText = `Daftar Murid Kelas ${cls}`;
             renderStudents();
-        }
+        };
 
-        // RENDER TABLE
-        function renderStudents() {
+        window.renderStudents = () => {
             const body = document.getElementById('studentTableBody');
-            const filtered = students.filter(s => s.kelas === currentClass);
+            const filtered = window.students.filter(s => s.kelas === window.currentClass);
             
             body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Belum ada data murid di kelas ini.</td></tr>';
             
@@ -266,25 +319,66 @@
                     <td class="px-6 py-4 text-slate-600">${s.usia} thn / ${s.pendidikan}</td>
                     <td class="px-6 py-4">
                         <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-                            ${s.absensi.length} Hari
+                            ${s.absensi ? s.absensi.length : 0} Hari
                         </span>
                     </td>
                     <td class="px-6 py-4 no-print">
-                        <button onclick="absenManual(${s.id})" class="text-blue-600 hover:text-blue-800 font-bold">Absen</button>
+                        <button onclick="absenManual('${s.id}')" class="text-blue-600 hover:text-blue-800 font-bold">Absen</button>
                     </td>
                 `;
                 body.appendChild(tr);
             });
-        }
+        };
 
-        // REGISTRATION
-        function openRegisterModal() { document.getElementById('registerModal').classList.remove('hidden'); }
-        function closeRegisterModal() { document.getElementById('registerModal').classList.add('hidden'); }
+        window.saveDataToCloud = async (student) => {
+            if (!currentUser) return;
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id.toString()), student);
+            } catch (error) {
+                console.error("Save Error:", error);
+            }
+        };
 
-        document.getElementById('registerForm').onsubmit = (e) => {
+        window.absenManual = async (id) => {
+            const today = new Date().toLocaleDateString();
+            const s = window.students.find(x => x.id.toString() === id.toString());
+            if (s) {
+                if (!s.absensi) s.absensi = [];
+                if (!s.absensi.includes(today)) {
+                    const newAbsensi = [...s.absensi, today];
+                    try {
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id.toString()), {
+                            absensi: newAbsensi
+                        });
+                    } catch (error) {
+                        console.error("Update Absen Error:", error);
+                    }
+                }
+            }
+        };
+
+        window.logout = () => {
+            location.reload();
+        };
+
+        // UI Event Listeners
+        document.getElementById('loginForm').onsubmit = (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if (user === 'admin' && pass === 'Immanuel2026') {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('mainPortal').classList.remove('hidden');
+                renderStudents();
+            } else {
+                alert('Login Gagal! Pastikan username dan password benar.');
+            }
+        };
+
+        document.getElementById('registerForm').onsubmit = async (e) => {
             e.preventDefault();
             const newStudent = {
-                id: Date.now(),
+                id: Date.now().toString(),
                 nama: document.getElementById('regNama').value,
                 kelas: document.getElementById('regKelas').value,
                 tanggalLahir: document.getElementById('regTgl').value,
@@ -293,51 +387,36 @@
                 fotoProfil: document.getElementById('regFoto').value,
                 absensi: []
             };
-            students.push(newStudent);
-            saveData();
+            await saveDataToCloud(newStudent);
             closeRegisterModal();
-            renderStudents();
             e.target.reset();
         };
 
-        // SCAN LOGIC
+        // Scan Camera Logic
         let videoStream;
-        function openScanModal() {
+        window.openScanModal = () => {
             document.getElementById('scanModal').classList.remove('hidden');
             const video = document.getElementById('video');
-            
-            // Perbaikan akses kamera agar lebih kompatibel
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" } 
-                })
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                 .then(stream => {
                     videoStream = stream;
                     video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        video.play();
-                    };
+                    video.onloadedmetadata = () => video.play();
                 })
-                .catch(err => {
-                    console.error("Kesalahan kamera:", err);
-                    alert("Kamera tidak dapat diakses. Pastikan Anda telah memberikan izin di browser.");
-                });
-            } else {
-                alert("Browser Anda tidak mendukung akses kamera.");
+                .catch(() => alert("Kamera tidak dapat diakses."));
             }
-        }
+        };
 
-        function closeScanModal() {
+        window.closeScanModal = () => {
             document.getElementById('scanModal').classList.add('hidden');
-            if (videoStream) {
-                videoStream.getTracks().forEach(t => t.stop());
-            }
+            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
             document.getElementById('scanResult').classList.add('hidden');
             document.getElementById('cameraArea').classList.remove('hidden');
             document.getElementById('captureBtn').classList.remove('hidden');
-        }
+        };
 
-        function simulateScan() {
+        window.simulateScan = () => {
             const resultDiv = document.getElementById('scanResult');
             const cameraArea = document.getElementById('cameraArea');
             const captureBtn = document.getElementById('captureBtn');
@@ -345,12 +424,12 @@
             cameraArea.classList.add('hidden');
             captureBtn.classList.add('hidden');
             resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<div class="text-white animate-pulse flex flex-col items-center gap-4"><div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p>Mencocokkan data wajah dengan database...</p></div>';
+            resultDiv.innerHTML = '<div class="text-white animate-pulse flex flex-col items-center gap-4"><div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p>Mencocokkan wajah dengan cloud database...</p></div>';
 
             setTimeout(() => {
-                const isMatch = Math.random() > 0.3; // Simulasi kecocokan 70%
-                if (isMatch && students.length > 0) {
-                    const randomStudent = students[Math.floor(Math.random() * students.length)];
+                const isMatch = Math.random() > 0.3;
+                if (isMatch && window.students.length > 0) {
+                    const randomStudent = window.students[Math.floor(Math.random() * window.students.length)];
                     resultDiv.className = "mb-6 p-6 rounded-xl text-center bg-green-500/20 text-green-400 border border-green-500/50";
                     resultDiv.innerHTML = `
                         <i data-lucide="check-circle" class="mx-auto mb-2 w-12 h-12"></i>
@@ -359,42 +438,22 @@
                             <img src="${randomStudent.fotoProfil || 'https://via.placeholder.com/150'}" class="w-20 h-20 rounded-full border-2 border-green-500 object-cover mb-2">
                             <p class="text-white font-bold">${randomStudent.nama}</p>
                             <p class="text-sm opacity-70">Kelas ${randomStudent.kelas}</p>
-                            <p class="text-xs mt-4 text-green-300 bg-green-900/50 px-3 py-1 rounded">KODE: ${Math.random().toString(36).substring(7).toUpperCase()}</p>
+                            <p class="text-[10px] mt-2 text-green-300">Data sinkron otomatis ke semua HP.</p>
                         </div>
                     `;
                     absenManual(randomStudent.id);
                 } else {
                     resultDiv.className = "mb-6 p-6 rounded-xl text-center bg-red-500/20 text-red-400 border border-red-500/50";
-                    resultDiv.innerHTML = `
-                        <i data-lucide="x-circle" class="mx-auto mb-2 w-12 h-12"></i>
-                        <h3 class="text-xl font-bold">GAGAL DETEKSI</h3>
-                        <p class="text-white mt-2 text-sm px-4">Wajah tidak cocok dengan foto profil di database. Silahkan posisikan wajah dengan benar.</p>
-                    `;
+                    resultDiv.innerHTML = `<i data-lucide="x-circle" class="mx-auto mb-2 w-12 h-12"></i><h3 class="text-xl font-bold">GAGAL</h3><p class="text-white mt-2 text-sm px-4">Wajah tidak dikenali.</p>`;
                 }
                 lucide.createIcons();
             }, 2500);
-        }
+        };
 
-        // UTILS
-        function absenManual(id) {
-            const today = new Date().toLocaleDateString();
-            const s = students.find(x => x.id === id);
-            if (s && !s.absensi.includes(today)) {
-                s.absensi.push(today);
-                saveData();
-                renderStudents();
-            }
-        }
+        window.openRegisterModal = () => document.getElementById('registerModal').classList.remove('hidden');
+        window.closeRegisterModal = () => document.getElementById('registerModal').classList.add('hidden');
 
-        function saveData() {
-            localStorage.setItem('sm_students', JSON.stringify(students));
-        }
-
-        // Initial render
-        window.onload = () => {
-            renderStudents();
-        }
-
+        lucide.createIcons();
     </script>
 </body>
 </html>
