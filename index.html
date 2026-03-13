@@ -68,7 +68,7 @@
             </div>
             
             <div class="space-y-2 flex-grow">
-                <button onclick="switchTab('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-blue-50 text-blue-600">
+                <button onclick="changeClass(currentClass)" class="nav-btn w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-blue-50 text-blue-600">
                     <i data-lucide="clipboard-list" size="20"></i> Absensi
                 </button>
                 <button onclick="openRegisterModal()" class="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100">
@@ -88,9 +88,9 @@
         <main class="flex-grow p-4 md:p-8">
             <!-- Header Tab Kelas -->
             <div class="flex flex-wrap gap-2 mb-8 no-print">
-                <button onclick="changeClass('Bintang')" id="btn-Bintang" class="class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg">Kelas Bintang</button>
-                <button onclick="changeClass('Cahaya')" id="btn-Cahaya" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200">Kelas Cahaya</button>
-                <button onclick="changeClass('Pra Remaja')" id="btn-Pra-Remaja" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200">Kelas Pra Remaja</button>
+                <button onclick="changeClass('Bintang')" id="btn-Bintang" class="class-btn px-6 py-2 rounded-full font-medium bg-blue-600 text-white shadow-lg transition-all">Kelas Bintang</button>
+                <button onclick="changeClass('Cahaya')" id="btn-Cahaya" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200 transition-all">Kelas Cahaya</button>
+                <button onclick="changeClass('Pra Remaja')" id="btn-Pra-Remaja" class="class-btn px-6 py-2 rounded-full font-medium bg-white text-slate-600 border border-slate-200 transition-all">Kelas Pra Remaja</button>
             </div>
 
             <!-- Table -->
@@ -167,7 +167,8 @@
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium mb-1">Foto Profil (URL Gambar)</label>
-                        <input type="text" id="regFoto" placeholder="https://..." class="w-full border p-2 rounded-lg">
+                        <input type="text" id="regFoto" placeholder="Contoh: https://i.pravatar.cc/150" class="w-full border p-2 rounded-lg">
+                        <p class="text-[10px] text-slate-400 mt-1">*Masukkan link foto dari internet untuk identitas</p>
                     </div>
                 </div>
                 <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg mt-4 hover:bg-blue-700 transition">
@@ -184,7 +185,7 @@
             <h2 class="text-xl font-bold text-white mb-6 text-center">Scan Wajah Murid</h2>
             
             <div id="cameraArea" class="relative aspect-video bg-black rounded-2xl overflow-hidden mb-6 border-2 border-blue-500/30">
-                <video id="video" autoplay playsinline class="w-full h-full object-cover grayscale"></video>
+                <video id="video" autoplay playsinline class="w-full h-full object-cover"></video>
                 <div class="scan-line"></div>
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div class="w-48 h-48 border-2 border-dashed border-white/50 rounded-full"></div>
@@ -224,7 +225,7 @@
                 document.getElementById('mainPortal').classList.remove('hidden');
                 renderStudents();
             } else {
-                alert('Login Gagal! Pastikan password benar.');
+                alert('Login Gagal! Pastikan username dan password benar.');
             }
         };
 
@@ -239,7 +240,8 @@
                 btn.classList.remove('bg-blue-600', 'text-white', 'shadow-lg');
                 btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
             });
-            document.getElementById(`btn-${cls.replace(' ', '-')}`).classList.add('bg-blue-600', 'text-white', 'shadow-lg');
+            const activeBtn = document.getElementById(`btn-${cls.replace(' ', '-')}`);
+            if (activeBtn) activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-lg');
             document.getElementById('tableTitle').innerText = `Daftar Murid Kelas ${cls}`;
             renderStudents();
         }
@@ -249,14 +251,16 @@
             const body = document.getElementById('studentTableBody');
             const filtered = students.filter(s => s.kelas === currentClass);
             
-            body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Belum ada data murid.</td></tr>';
+            body.innerHTML = filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-slate-400">Belum ada data murid di kelas ini.</td></tr>';
             
             filtered.forEach(s => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition";
+                const displayFoto = s.fotoProfil || 'https://via.placeholder.com/150?text=No+Foto';
+                
                 tr.innerHTML = `
                     <td class="px-6 py-4">
-                        <img src="${s.fotoProfil || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full object-cover bg-slate-200">
+                        <img src="${displayFoto}" class="w-12 h-12 rounded-full object-cover bg-slate-200 border border-slate-300" onerror="this.src='https://via.placeholder.com/150?text=Error'">
                     </td>
                     <td class="px-6 py-4 font-medium text-slate-800">${s.nama}</td>
                     <td class="px-6 py-4 text-slate-600">${s.usia} thn / ${s.pendidikan}</td>
@@ -300,16 +304,34 @@
         let videoStream;
         function openScanModal() {
             document.getElementById('scanModal').classList.remove('hidden');
-            navigator.mediaDevices.getUserMedia({ video: true })
+            const video = document.getElementById('video');
+            
+            // Perbaikan akses kamera agar lebih kompatibel
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" } 
+                })
                 .then(stream => {
                     videoStream = stream;
-                    document.getElementById('video').srcObject = stream;
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                    };
+                })
+                .catch(err => {
+                    console.error("Kesalahan kamera:", err);
+                    alert("Kamera tidak dapat diakses. Pastikan Anda telah memberikan izin di browser.");
                 });
+            } else {
+                alert("Browser Anda tidak mendukung akses kamera.");
+            }
         }
 
         function closeScanModal() {
             document.getElementById('scanModal').classList.add('hidden');
-            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+            }
             document.getElementById('scanResult').classList.add('hidden');
             document.getElementById('cameraArea').classList.remove('hidden');
             document.getElementById('captureBtn').classList.remove('hidden');
@@ -323,7 +345,7 @@
             cameraArea.classList.add('hidden');
             captureBtn.classList.add('hidden');
             resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<div class="text-white animate-pulse">Mencocokkan data wajah...</div>';
+            resultDiv.innerHTML = '<div class="text-white animate-pulse flex flex-col items-center gap-4"><div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p>Mencocokkan data wajah dengan database...</p></div>';
 
             setTimeout(() => {
                 const isMatch = Math.random() > 0.3; // Simulasi kecocokan 70%
@@ -333,9 +355,12 @@
                     resultDiv.innerHTML = `
                         <i data-lucide="check-circle" class="mx-auto mb-2 w-12 h-12"></i>
                         <h3 class="text-xl font-bold">BERHASIL!</h3>
-                        <p class="text-white mt-2">${randomStudent.nama}</p>
-                        <p class="text-sm opacity-70">Kelas ${randomStudent.kelas}</p>
-                        <p class="text-xs mt-1 text-green-300">Kode Berhasil: ${Math.random().toString(36).substring(7).toUpperCase()}</p>
+                        <div class="mt-4 flex flex-col items-center">
+                            <img src="${randomStudent.fotoProfil || 'https://via.placeholder.com/150'}" class="w-20 h-20 rounded-full border-2 border-green-500 object-cover mb-2">
+                            <p class="text-white font-bold">${randomStudent.nama}</p>
+                            <p class="text-sm opacity-70">Kelas ${randomStudent.kelas}</p>
+                            <p class="text-xs mt-4 text-green-300 bg-green-900/50 px-3 py-1 rounded">KODE: ${Math.random().toString(36).substring(7).toUpperCase()}</p>
+                        </div>
                     `;
                     absenManual(randomStudent.id);
                 } else {
@@ -343,18 +368,18 @@
                     resultDiv.innerHTML = `
                         <i data-lucide="x-circle" class="mx-auto mb-2 w-12 h-12"></i>
                         <h3 class="text-xl font-bold">GAGAL DETEKSI</h3>
-                        <p class="text-white mt-2 text-sm">Wajah tidak cocok dengan foto profil di database.</p>
+                        <p class="text-white mt-2 text-sm px-4">Wajah tidak cocok dengan foto profil di database. Silahkan posisikan wajah dengan benar.</p>
                     `;
                 }
                 lucide.createIcons();
-            }, 2000);
+            }, 2500);
         }
 
         // UTILS
         function absenManual(id) {
             const today = new Date().toLocaleDateString();
             const s = students.find(x => x.id === id);
-            if (!s.absensi.includes(today)) {
+            if (s && !s.absensi.includes(today)) {
                 s.absensi.push(today);
                 saveData();
                 renderStudents();
@@ -363,6 +388,11 @@
 
         function saveData() {
             localStorage.setItem('sm_students', JSON.stringify(students));
+        }
+
+        // Initial render
+        window.onload = () => {
+            renderStudents();
         }
 
     </script>
