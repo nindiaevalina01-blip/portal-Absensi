@@ -217,7 +217,6 @@
         // --- MANAJEMEN KONEKSI CLOUD ---
         async function connectCloud() {
             try {
-                // Autentikasi di latar belakang
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -230,17 +229,14 @@
             }
         }
 
-        // Listener Auth & Sinkronisasi Data Otomatis
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 window.cloudStatus = 'connected';
                 updateCloudStatusUI(true);
                 
-                // Mulai Listening data secara realtime
                 const q = collection(db, 'artifacts', appId, 'public', 'data', 'students');
                 onSnapshot(q, (snapshot) => {
                     window.students = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-                    // Render jika portal sudah terbuka
                     if (!document.getElementById('mainPortal').classList.contains('hidden')) {
                         renderStudents();
                     }
@@ -251,7 +247,6 @@
             }
         });
 
-        // Ekspor fungsi Firebase ke Window agar bisa dipanggil fungsi UI
         window.syncUpdate = async (docId, data) => {
             if (window.cloudStatus !== 'connected') return;
             try {
@@ -268,7 +263,6 @@
             } catch (e) { console.error("Sync Set Failed", e); }
         };
 
-        // Mulai koneksi secara paralel
         connectCloud();
 
         // --- UI LOGIC ---
@@ -288,14 +282,15 @@
             const p = document.getElementById('password').value;
             
             if (u === 'admin' && p === 'Immanuel2026') {
+                // Sembunyikan login, tampilkan portal dengan flex
                 document.getElementById('loginPage').classList.add('hidden');
-                document.getElementById('mainPortal').classList.remove('hidden');
-                document.getElementById('mainPortal').style.display = 'flex';
+                const mainPortal = document.getElementById('mainPortal');
+                mainPortal.classList.remove('hidden');
+                mainPortal.classList.add('flex');
                 
-                // Segera render data yang mungkin sudah ter-cache
                 renderStudents();
                 updateCloudStatusUI(window.cloudStatus === 'connected');
-                lucide.createIcons();
+                if (window.lucide) lucide.createIcons();
             } else {
                 alert("Username atau Password Salah!");
             }
@@ -355,7 +350,6 @@
             }
         };
 
-        // Form Registration
         document.getElementById('registerForm').onsubmit = async (e) => {
             e.preventDefault();
             const id = Date.now().toString();
@@ -372,7 +366,6 @@
             e.target.reset();
         };
 
-        // Modals & Camera Logic
         window.openRegisterModal = () => document.getElementById('registerModal').classList.remove('hidden');
         window.closeRegisterModal = () => document.getElementById('registerModal').classList.add('hidden');
         
@@ -411,11 +404,10 @@
                 } else {
                     res.innerHTML = '<p class="text-red-400">Data Murid Kosong</p>';
                 }
-                lucide.createIcons();
+                if (window.lucide) lucide.createIcons();
             }, 1500);
         };
 
-        // Final Init
         lucide.createIcons();
     </script>
 </body>
